@@ -1,22 +1,24 @@
 package com.eyya.scales2_01;
 
-import androidx.activity.result.ActivityResult;
-import androidx.activity.result.ActivityResultCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothManager;
+import android.bluetooth.BluetoothGatt;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.os.Binder;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.widget.Toast;
 
 import java.util.Set;
@@ -104,7 +106,8 @@ public class MainActivity extends AppCompatActivity {
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
                 String deviceName = device.getName();
                 String deviceHardwareAddress = device.getAddress(); // MAC address
-                System.out.println("***********" + deviceName);
+                System.out.println("Device Name: " + deviceName);
+                System.out.println("MAC Address: " + deviceHardwareAddress);
 
             }
         }
@@ -116,5 +119,6 @@ public class MainActivity extends AppCompatActivity {
         // Don't forget to unregister the ACTION_FOUND receiver.
         unregisterReceiver(receiver);
     }
+
 
 }
