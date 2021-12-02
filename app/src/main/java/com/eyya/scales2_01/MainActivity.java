@@ -1,47 +1,77 @@
 package com.eyya.scales2_01;
 
+
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 
 import android.Manifest;
 import android.app.Activity;
-import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
-import android.bluetooth.BluetoothServerSocket;
-import android.bluetooth.BluetoothSocket;
-import android.content.BroadcastReceiver;
-import android.content.Context;
+import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattService;
 import android.content.Intent;
-import android.content.IntentFilter;
-import android.os.Binder;
 import android.os.Bundle;
-import android.os.IBinder;
+import android.widget.TextView;
 import android.widget.Toast;
 
-import java.io.IOException;
-import java.util.Set;
+import com.clj.fastble.BleManager;
+import com.clj.fastble.callback.BleNotifyCallback;
+import com.clj.fastble.callback.BleScanAndConnectCallback;
+import com.clj.fastble.callback.BleScanCallback;
+import com.clj.fastble.callback.BleWriteCallback;
+import com.clj.fastble.data.BleDevice;
+import com.clj.fastble.exception.BleException;
+import com.clj.fastble.scan.BleScanRuleConfig;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity {
-    private final int ENABLE_BLUETOOTH_REQUEST_CODE = 1;
-    private final int intVal = 1;
+    //TextView textView = (TextView) findViewById(R.id.textView);
+    private final BluetoothAdapter bAdapter = BluetoothAdapter.getDefaultAdapter();
+    String name = "K2H";
+    BleDevice bleDevice;
+    BleScanCallback callback;
+    String uuid_characteristic_notify;
+    String uuid_service;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        BluetoothAdapter bAdapter = BluetoothAdapter.getDefaultAdapter();
-        /*
-         * Check if device supports BLE
-         */
-        if (bAdapter == null) {
-            Toast.makeText(this, "Device Does not support Bluetooth", Toast.LENGTH_SHORT).show();
+        bleCheck();
+        bleIsOn();
+        initLocationPermission();
+        BleManager.getInstance().init(getApplication());
+        BleManager.getInstance()
+                .enableLog(true)
+                .setReConnectCount(1, 5000)
+                .setSplitWriteNum(20)
+                .setConnectOverTime(10000)
+                .setOperateTimeout(5000);
+
+        BleScanRuleConfig scanRuleConfig = new BleScanRuleConfig.Builder()
+                .setDeviceName(true, name)
+                .setAutoConnect(true)
+                .setScanTimeOut(10000)
+                .build();
+        BleManager.getInstance().initScanRule(scanRuleConfig);
+
+
+        try {
+            new ScanAndConnect();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
+
+    }
+
+
+    private void bleIsOn() {
         /*
           Check if Bluetooth is on
           Request to turn on
@@ -51,37 +81,17 @@ public class MainActivity extends AppCompatActivity {
             Intent bTIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
             launchBTRequestActivity.launch(bTIntent);
         }
-        initLocationPermission();
-        getPairedDevices(bAdapter);
-
-        // Register for broadcasts when a device is discovered.
-        IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
-        registerReceiver(receiver, filter);
-        bAdapter.startDiscovery();
     }
 
-    private void getPairedDevices(BluetoothAdapter bAdapter) {
-        // Get paired devices.
-        Set<BluetoothDevice> pairedDevices = bAdapter.getBondedDevices();
-        if (pairedDevices.size() > 0) {
-            // There are paired devices. Get the name and address of each paired device.
-            for (BluetoothDevice device : pairedDevices) {
-                String deviceName = device.getName();
-                String deviceHardwareAddress = device.getAddress(); // MAC address
-
-            }
+    private void bleCheck() {
+        /*
+         * Check if device supports BLE
+         */
+        if (bAdapter == null) {
+            Toast.makeText(this, "Device Does not support Bluetooth", Toast.LENGTH_SHORT).show();
         }
     }
 
-    private void makeDiscoverable() {
-        /*
-         * Set device discoverable
-         * device becomes discoverable for 300 seconds
-         */
-        Intent dIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
-        dIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300);
-        startActivity(dIntent);
-    }
 
     /*
      * Bluetooth request activity launch
@@ -99,76 +109,102 @@ public class MainActivity extends AppCompatActivity {
         ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION}, 1);
     }
 
-    // Create a BroadcastReceiver for ACTION_FOUND.
-    private final BroadcastReceiver receiver = new BroadcastReceiver() {
-        public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-            if (BluetoothDevice.ACTION_FOUND.equals(action)) {
-                // Discovery has found a device. Get the BluetoothDevice
-                // object and its info from the Intent.
-                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                String deviceName = device.getName();
-                String deviceHardwareAddress = device.getAddress(); // MAC address
-                System.out.println("Device Name: " + deviceName);
-                System.out.println("MAC Address: " + deviceHardwareAddress);
 
-            }
-        }
-    };
+    static class ScanAndConnect extends Thread {
 
-    private class AcceptThread extends Thread {
-        private final BluetoothServerSocket mmServerSocket;
-
-        public AcceptThread() {
-            // Use a temporary object that is later assigned to mmServerSocket,
-            // because mmServerSocket is final
-            BluetoothServerSocket tmp = null;
-            try {
-                // MY_UUID is the app's UUID string, also used by the client code
-                BluetoothAdapter mBluetoothAdapter = null;
-                tmp = mBluetoothAdapter.listenUsingRfcommWithServiceRecord(NAME, MY_UUID);
-            } catch (IOException e) { }
-            mmServerSocket = tmp;
-        }
-
-        public void run() {
-            BluetoothSocket socket = null;
-            // Keep listening until exception occurs or a socket is returned
-            while (true) {
-                try {
-                    socket = mmServerSocket.accept();
-                } catch (IOException e) {
-                    break;
+        public ScanAndConnect() throws InterruptedException {
+            BleManager.getInstance().scanAndConnect(new BleScanAndConnectCallback() {
+                @Override
+                public void onScanStarted(boolean success) {
                 }
-                // If a connection was accepted
-                if (socket != null) {
-                    // Do work to manage the connection (in a separate thread)
-                    manageConnectedSocket(socket);
-                    try {
-                        mmServerSocket.close();
-                    } catch (IOException e) {
-                        e.printStackTrace();
+
+                @Override
+                public void onScanning(BleDevice bleDevice) {
+
+                }
+
+                @Override
+                public void onScanFinished(BleDevice scanResult) {
+                }
+
+                @Override
+                public void onStartConnect() {
+                }
+
+                @Override
+                public void onConnectFail(BleDevice bleDevice, BleException exception) {
+                }
+
+                @Override
+                public void onConnectSuccess(BleDevice bleDevice, BluetoothGatt gatt, int status) {
+                    System.out.println("Connected to: " + bleDevice.getName());
+                    gatt = BleManager.getInstance().getBluetoothGatt(bleDevice);
+                    List<BluetoothGattService> serviceList = gatt.getServices();
+                    for (BluetoothGattService service : serviceList) {
+                        UUID uuid_service = service.getUuid();
+                        List<BluetoothGattCharacteristic> characteristicList = service.getCharacteristics();
+                        for (BluetoothGattCharacteristic characteristic : characteristicList) {
+                            UUID uuid_chara = characteristic.getUuid();
+                            System.out.println("service: " + uuid_service + " ::cahr: " + uuid_chara);
+                        }
                     }
-                    break;
+                    new NotifyDevice(bleDevice, "0000fee0-0000-1000-8000-00805f9b34fb", "0000fee1-0000-1000-8000-00805f9b34fb");
+                    //byte[] b = {5, 5, 'A', 'A'};
+                    //new Write(bleDevice, uuid_service.toString(), "96d9ccca-6a8e-4cfa-b0cf-fa9a99bb8c76", b);
                 }
-            }
-        }
 
-        /** Will cancel the listening socket, and cause the thread to finish */
-        public void cancel() {
-            try {
-                mmServerSocket.close();
-            } catch (IOException e) { }
+                @Override
+                public void onDisConnected(boolean isActiveDisConnected, BleDevice
+                        device, BluetoothGatt gatt, int status) {
+                }
+            });
         }
     }
 
+    static class NotifyDevice extends Thread {
+        public NotifyDevice(BleDevice bleDevice, String uuid_service, String uuid_characteristic_notify) {
+            BleManager.getInstance().notify(
+                    bleDevice,
+                    uuid_service,
+                    uuid_characteristic_notify,
+                    new BleNotifyCallback() {
+                        @Override
+                        public void onNotifySuccess() {
 
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        // Don't forget to unregister the ACTION_FOUND receiver.
-        unregisterReceiver(receiver);
+                        }
+
+                        @Override
+                        public void onNotifyFailure(BleException exception) {
+                            System.out.println(exception);
+                        }
+
+                        @Override
+                        public void onCharacteristicChanged(byte[] data) {
+                            System.out.println(Arrays.toString(data));
+                            //textView.set(data.toString());
+                        }
+                    });
+        }
     }
 
+    static class Write {
+        public Write(BleDevice bleDevice, String uuid_service, String uuid_characteristic_write, byte[] data) {
+            BleManager.getInstance().write(
+                    bleDevice,
+                    uuid_service,
+                    uuid_characteristic_write,
+                    data,
+                    new BleWriteCallback() {
+                        @Override
+                        public void onWriteSuccess(int current, int total, byte[] justWrite) {
+                            System.out.println(current + " " + total + " " + Arrays.toString(justWrite));
+                        }
 
+                        @Override
+                        public void onWriteFailure(BleException exception) {
+                            System.out.println("Write Fail: " + exception);
+                        }
+                    });
+        }
+    }
 }
