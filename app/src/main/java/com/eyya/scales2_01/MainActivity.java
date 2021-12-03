@@ -3,6 +3,7 @@ package com.eyya.scales2_01;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 
@@ -13,6 +14,7 @@ import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattService;
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -26,6 +28,7 @@ import com.clj.fastble.data.BleDevice;
 import com.clj.fastble.exception.BleException;
 import com.clj.fastble.scan.BleScanRuleConfig;
 
+import java.text.DecimalFormat;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
@@ -178,10 +181,83 @@ public class MainActivity extends AppCompatActivity {
                             System.out.println(exception);
                         }
 
+                        @RequiresApi(api = Build.VERSION_CODES.O)
                         @Override
                         public void onCharacteristicChanged(byte[] data) {
-                            System.out.println(Arrays.toString(data));
-                            //textView.set(data.toString());
+                            //System.out.println(Arrays.toString(data));
+                            final DecimalFormat df = new DecimalFormat("0.0");
+                            try {
+                                int a = Byte.toUnsignedInt(data[5]);
+                                int b = Byte.toUnsignedInt(data[6]);
+                                int g = (a + (b * 256));
+                                //System.out.println(a + b * 256);
+                                String unit = String.format("%02x", data[3]);
+                                String sign = String.format("%02x", data[4]);
+                                switch (sign) {
+                                    case "c1":
+                                        switch (unit) {
+                                            case "01":
+                                                System.out.println(g + "g");
+                                                break;
+                                            case "02":
+                                                double kg = g / 1000.0;
+                                                System.out.println(kg + "kg");
+                                                break;
+                                            case "04":
+                                                double oz1 = (g * 0.03527397);
+                                                double oz2 = (oz1 % 16);
+                                                int lb = (int) (oz1 - oz2) / 16;
+                                                String oz3 = df.format(oz2);
+                                                System.out.println(lb + "lb : " + oz3 + "oz");
+                                                break;
+                                            case "08":
+                                                String oz = df.format(g * 0.03527397);
+                                                System.out.println(oz + "oz");
+                                                break;
+                                            case "10":
+                                                System.out.println(g + "ml");
+                                                break;
+                                            default:
+                                                System.out.println("err");
+                                                break;
+                                        }
+                                        break;
+                                    case "e1":
+                                        switch (unit) {
+                                            case "01":
+                                                System.out.println("-" + g + "g");
+                                                break;
+                                            case "02":
+                                                double kg = g / 1000.0;
+                                                System.out.println("-" + kg + "kg");
+                                                break;
+                                            case "04":
+                                                double oz1 = (g * 0.03527397);
+                                                double oz2 = (oz1 % 16);
+                                                int lb = (int) (oz1 - oz2) / 16;
+                                                String oz3 = df.format(oz2);
+                                                System.out.println("-" + lb + "lb : " + oz3 + "oz");
+                                                break;
+                                            case "08":
+                                                String oz = df.format(g * 0.03527397);
+                                                System.out.println("-" + oz + "oz");
+                                                break;
+                                            case "10":
+                                                System.out.println("-" + g + "ml");
+                                                break;
+                                            default:
+                                                System.out.println("err");
+                                                break;
+                                        }
+                                        break;
+                                    default:
+                                        System.out.println("err");
+                                        break;
+                                }
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+
                         }
                     });
         }
