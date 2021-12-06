@@ -34,13 +34,9 @@ import java.util.List;
 import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity {
-    //TextView textView = (TextView) findViewById(R.id.textView);
+    TextView textView;
     private final BluetoothAdapter bAdapter = BluetoothAdapter.getDefaultAdapter();
     String name = "K2H";
-    BleDevice bleDevice;
-    BleScanCallback callback;
-    String uuid_characteristic_notify;
-    String uuid_service;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -63,8 +59,7 @@ public class MainActivity extends AppCompatActivity {
                 .setScanTimeOut(10000)
                 .build();
         BleManager.getInstance().initScanRule(scanRuleConfig);
-
-
+        textView = (TextView) findViewById(R.id.textView);
         try {
             new ScanAndConnect();
         } catch (InterruptedException e) {
@@ -113,7 +108,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-    static class ScanAndConnect extends Thread {
+    class ScanAndConnect extends Thread {
 
         public ScanAndConnect() throws InterruptedException {
             BleManager.getInstance().scanAndConnect(new BleScanAndConnectCallback() {
@@ -153,7 +148,7 @@ public class MainActivity extends AppCompatActivity {
                     }
                     new NotifyDevice(bleDevice, "0000fee0-0000-1000-8000-00805f9b34fb", "0000fee1-0000-1000-8000-00805f9b34fb");
                     //byte[] b = {5, 5, 'A', 'A'};
-                    //new Write(bleDevice, uuid_service.toString(), "96d9ccca-6a8e-4cfa-b0cf-fa9a99bb8c76", b);
+                    //new Write(bleDevice, "0000fee0-0000-1000-8000-00805f9b34fb", "0000fee2-0000-1000-8000-00805f9b34fb", b);
                 }
 
                 @Override
@@ -164,7 +159,8 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    static class NotifyDevice extends Thread {
+    class NotifyDevice extends Thread {
+
         public NotifyDevice(BleDevice bleDevice, String uuid_service, String uuid_characteristic_notify) {
             BleManager.getInstance().notify(
                     bleDevice,
@@ -198,10 +194,12 @@ public class MainActivity extends AppCompatActivity {
                                         switch (unit) {
                                             case "01":
                                                 System.out.println(g + "g");
+                                                getMsg(g + "g");
                                                 break;
                                             case "02":
                                                 double kg = g / 1000.0;
                                                 System.out.println(kg + "kg");
+                                                getMsg(kg + "kg");
                                                 break;
                                             case "04":
                                                 double oz1 = (g * 0.03527397);
@@ -209,16 +207,20 @@ public class MainActivity extends AppCompatActivity {
                                                 int lb = (int) (oz1 - oz2) / 16;
                                                 String oz3 = df.format(oz2);
                                                 System.out.println(lb + "lb : " + oz3 + "oz");
+                                                getMsg(lb + "lb : " + oz3 + "oz");
                                                 break;
                                             case "08":
                                                 String oz = df.format(g * 0.03527397);
                                                 System.out.println(oz + "oz");
+                                                getMsg(oz + "oz");
                                                 break;
                                             case "10":
                                                 System.out.println(g + "ml");
+                                                getMsg(g + "ml");
                                                 break;
                                             default:
                                                 System.out.println("err");
+                                                getMsg("err");
                                                 break;
                                         }
                                         break;
@@ -226,10 +228,12 @@ public class MainActivity extends AppCompatActivity {
                                         switch (unit) {
                                             case "01":
                                                 System.out.println("-" + g + "g");
+                                                getMsg("-" + g + "g");
                                                 break;
                                             case "02":
                                                 double kg = g / 1000.0;
                                                 System.out.println("-" + kg + "kg");
+                                                getMsg("-" + kg + "kg");
                                                 break;
                                             case "04":
                                                 double oz1 = (g * 0.03527397);
@@ -237,16 +241,20 @@ public class MainActivity extends AppCompatActivity {
                                                 int lb = (int) (oz1 - oz2) / 16;
                                                 String oz3 = df.format(oz2);
                                                 System.out.println("-" + lb + "lb : " + oz3 + "oz");
+                                                getMsg("-" + lb + "lb : " + oz3 + "oz");
                                                 break;
                                             case "08":
                                                 String oz = df.format(g * 0.03527397);
                                                 System.out.println("-" + oz + "oz");
+                                                getMsg("-" + oz + "oz");
                                                 break;
                                             case "10":
                                                 System.out.println("-" + g + "ml");
+                                                getMsg("-" + g + "ml");
                                                 break;
                                             default:
                                                 System.out.println("err");
+                                                getMsg("err");
                                                 break;
                                         }
                                         break;
@@ -260,6 +268,15 @@ public class MainActivity extends AppCompatActivity {
 
                         }
                     });
+        }
+
+        public void getMsg(String msg) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    textView.setText(msg);
+                }
+            });
         }
     }
 
