@@ -61,8 +61,8 @@ public class MainActivity extends AppCompatActivity {
                 .setScanTimeOut(10000)
                 .build();
         BleManager.getInstance().initScanRule(scanRuleConfig);
-        textView = findViewById(R.id.textView);
-        btnTare = findViewById(R.id.btnTare);
+        textView = findViewById(R.id.weightLBL);
+        btnTare = findViewById(R.id.zeroBTN);
         try {
             new ScanAndConnect();
         } catch (InterruptedException e) {
